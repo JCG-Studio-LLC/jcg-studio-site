@@ -19,6 +19,16 @@
 <link rel="modulepreload" href="https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js">
 <script type="importmap">{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js", "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/", "three/examples/jsm/": "https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/", "n8ao": "https://cdn.jsdelivr.net/npm/n8ao@1.9.4/dist/N8AO.js", "postprocessing": "data:text/javascript,export class Pass{}" } }</script>
 <script>if (/[?&]cover\b/.test(location.search)) document.documentElement.classList.add('is-cover');</script>
+<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+<script>
+/* Start the model and the Draco decoder downloading now, in parallel with the module graph (they used to be requested only
+   after every script had loaded). The URLs match the ones the viewer asks for, so its own request is served from this one. */
+(function () {
+  var phone = matchMedia('(max-width: 760px)').matches, coarse = matchMedia('(pointer: coarse)').matches, cover = /[?&]cover\b/.test(location.search);
+  var model = new URL((phone || (cover && coarse) ? '../../../assets/3d/etherea-mobile.glb?v=20261027q' : '../../../assets/3d/etherea-lowres.glb?v=20261027q-shared'), location.href).href, d = 'https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/libs/draco/gltf/';
+  [model, d + 'draco_wasm_wrapper.js', d + 'draco_decoder.wasm'].forEach(function (u) { var l = document.createElement('link'); l.rel = 'preload'; l.as = 'fetch'; l.crossOrigin = 'anonymous'; l.href = u; document.head.appendChild(l); });
+})();
+</script>
 <style>
   :root { --void: #0B0C0E; --chrome: #E6E9ED; --chrome-3: #8A919B; --line: rgba(230,233,237,.16); --signal: #FF5B35; color-scheme: dark; }
   html, body { margin: 0; height: 100%; background: #c8c4bd; color: var(--chrome); overflow: hidden; }
@@ -26,6 +36,10 @@
   canvas { display: block; width: 100vw; height: 100dvh; touch-action: none; }
   /* cover = a backdrop inside another page (hero, Work-floor card): it must never take a touch. iOS/iPadOS WebKit lets a touch-action:none canvas inside an iframe swallow the swipe even when the iframe has pointer-events:none, so the cover itself says pan-y + no hit-testing (!important beats the inline touch-action OrbitControls sets) */
   html.is-cover, html.is-cover body, html.is-cover canvas { touch-action: pan-y !important; pointer-events: none !important; -webkit-user-select: none; user-select: none; }
+  /* a cover shows nothing until its model is in, then fades it up (a lone wall used to sit there while the rest loaded) */
+  html.is-cover canvas { opacity: 0; transition: opacity .7s ease; }
+  html.is-cover.is-ready canvas { opacity: 1; }
+  @media (prefers-reduced-motion: reduce) { html.is-cover canvas { transition: none; } }
   .hud { font: 11px/1.3 var(--font-hud, monospace); letter-spacing: .08em; text-transform: uppercase; }
   .bar { position: fixed; left: 0; right: 0; top: 0; display: flex; justify-content: space-between; align-items: center; gap: 12px;
          padding: calc(env(safe-area-inset-top) + 14px) 16px 14px; pointer-events: none; }
@@ -367,6 +381,8 @@ loader.load(bakeTest ? ASSETS + '3d/etherea-bake-test.glb?v=1' : ASSETS + MODEL,
   if (lid) { const lb = new THREE.Box3().setFromObject(lid); office.at.set(lb.max.x - 0.6, lb.max.y, lb.max.z - 1.0); office.ready = true; }   // marker on the lid's front, inner quarter (clear of the green wall's label); it stays put while the lid lifts
   buildMarkers(); setMode('golden', true); experience.ready(); invalidate();   // opens in golden hour (JC 2026-10-17)
   // in cover mode inside another page (the 719 hero), say when the model is on screen, so the still in front can fade
+  performance.mark('loft-ready');
+  if (cover) setTimeout(() => document.documentElement.classList.add('is-ready'), 400);   // fade the canvas up with the model on it
   if (cover && window.parent !== window) setTimeout(() => window.parent.postMessage({ type: 'viewer:ready' }, location.origin), 400);
   draco.dispose();
   if(debug) {

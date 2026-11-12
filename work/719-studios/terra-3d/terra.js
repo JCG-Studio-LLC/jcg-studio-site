@@ -110,6 +110,8 @@ loader.load(MODEL, (gltf) => {
   HOME.target.copy(mid).setY(0.6); controls.target.copy(HOME.target); fitted = false; resize();
   loadEl.style.opacity = 0; setTimeout(() => loadEl.remove(), 600);
   // in cover mode inside another page (the 719 hero), say when the model is on screen, so the still in front can fade
+  performance.mark('loft-ready');
+  if (cover) setTimeout(() => document.documentElement.classList.add('is-ready'), 400);   // fade the canvas up with the model on it
   if (cover && window.parent !== window) setTimeout(() => window.parent.postMessage({ type: 'viewer:ready' }, location.origin), 400);
   setMode('golden', true); document.getElementById('overview').disabled = false; invalidate();
   draco.dispose();

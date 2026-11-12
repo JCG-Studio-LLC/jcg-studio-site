@@ -124,7 +124,9 @@ function startLoad() {
     });
     load.style.opacity = 0; load.removeAttribute('aria-busy'); setTimeout(() => load.remove(), 600);
     // in cover mode inside another page (the 719 hero), say when the model is on screen, so the still in front can fade
-    if (cover && window.parent !== window) setTimeout(() => window.parent.postMessage({ type: 'viewer:ready' }, location.origin), 400);
+    performance.mark('loft-ready');
+  if (cover) setTimeout(() => document.documentElement.classList.add('is-ready'), 400);   // fade the canvas up with the model on it
+  if (cover && window.parent !== window) setTimeout(() => window.parent.postMessage({ type: 'viewer:ready' }, location.origin), 400);
     document.getElementById('overview').disabled = false;
     setMode('golden', true); flyHome(!reduce && !cover); invalidate();
     draco.dispose();
