@@ -2,10 +2,12 @@
 // block mark, JC: "C final answer").
 // The mark is nine blocks on a 30 x 12 unit grid. A block is 4 x 4 units, with one unit of air between letters.
 // J is a stem two blocks tall plus a foot on the diagonal; C is a back, top and bottom on the diagonals; G is the
-// same with a half-height spur. Corners round (a fifth of a block) where a letter turns. Where two blocks of one
-// letter meet corner to corner, that corner stays square and a fillet fills the two empty quadrants beside it.
+// same with a half-height spur. Corners round by 30% of a block (JC's pick, 2026-11-13; the spur's by half its
+// height). Where two blocks of one letter meet corner to corner, that corner stays square on both, and nothing
+// fills the gap beside it: the logo is plain blocks (JC, 2026-11-14: "roll the new logo out brand-wide"). Until
+// then the radius was a fifth of a block and a fillet sat in the two empty quadrants beside each such corner.
 // The build: one block appears (the C's back), and every next block pushes out of the block it is attached to.
-// Corner neighbours swell out of the corner as a droplet, with the fillet as the neck. The J squeezes out of the
+// Corner neighbours swell out of the corner as a droplet on a neck that thins to nothing as the block settles. The J squeezes out of the
 // C's back, pinches off and slides one unit left into its own letter. The G buds off the C's top-right corner,
 // its neck thins and snaps, and it slides one unit right.
 // Everything is a pure function of the frame number at 60 fps. Geometry is in mark units (one block = 60,
@@ -15,7 +17,7 @@ export const FPS = 60;
 export const MARK_END = 60;                       // by this frame the mark has settled into the exact logo
 export const MARK_W = 450, MARK_H = 180;          // 7.5 x 3 blocks
 export const UNITS = 4;                           // grid units per block
-const C = 60, U = C / UNITS, RAD = 12, K = 0.5522847498;
+const C = 60, U = C / UNITS, RAD = 18, NECK = 22, K = 0.5522847498;   // NECK: a bud's neck at its fattest
 
 // The final logo, block by block: [x, y, w, h] in mark units, and the corners that round. The J's stem is one
 // shape, drawn as two blocks so it can grow a block at a time.
@@ -31,7 +33,7 @@ export const BLOCKS = {
   G3: { L: 'G', r: [330, 120, 60, 60], round: 'bl br' },
   G4: { L: 'G', r: [390, 90, 60, 30], round: 'tl tr br' },
 };
-// Fillets at the corner contacts: [x, y, the corner of the empty quadrant at that point, the bud that grows it].
+// The necks at the corner contacts, there only while a bud grows: [x, y, the corner of the empty quadrant at that point, the bud that grows it].
 const WEBS = [
   [60, 120, 'br', 'J3'], [60, 120, 'tl', 'J3'],
   [195, 60, 'br', 'C2'], [195, 60, 'tl', 'C2'], [195, 120, 'bl', 'C3'], [195, 120, 'tr', 'C3'],
@@ -105,10 +107,11 @@ function tile(e, fr) {
   }
   return { x, y, w, h, r: rr };
 }
-function budNeck(e, fr) {                          // a fat neck while the bud grows, a fifth of a block at rest
+function budNeck(e, fr) {                          // a fat neck while the bud grows, nothing at rest
   if (fr < e.s) return 0;
   const tau = (fr - e.s) / FPS, g = Math.max(0, spring(tau)), hc = settle(Math.max(0, tau - 0.04));
-  return Math.max(0, Math.min(C * g, RAD + 10 * (1 - hc)));
+  const F = Math.min(C * g, NECK * (1 - hc));
+  return F < 0.5 ? 0 : F;                          // under half a unit it is gone, so the settled logo has no slivers
 }
 function splitNeck(fr) {                           // the C|G neck: grows with the G, thins to nothing, gone
   let F = budNeck(BY.G1, fr);
@@ -179,7 +182,7 @@ export function partialD(n, fr = 10 * MARK_END, grow = Infinity) {
     block's top-left at 0 0 (60 x 60 mark units; the spur is 60 x 30). The pieces of the build-the-mark puzzle. */
 export function blockD(id) {
   const [, , w, h] = BLOCKS[id].r, r = {}, p = new PathString();
-  for (const k of CORNERS) r[k] = rf(id, k);
+  for (const k of CORNERS) r[k] = Math.min(rf(id, k), Math.min(w, h) / 2);
   rrPath(p, 0, 0, w, h, r);
   return p.d;
 }
@@ -324,9 +327,8 @@ export function glyphCells(ch) {
 }
 
 /** The mark as bricks (for the footer game): `per` bricks per grid unit, so a block is 4 x per bricks square.
-    The brick at a rounded corner is a quarter disc (kind 'round', corner k); each fillet is one extra brick in the
-    empty quadrant beside a same-letter corner contact (kind 'web', corner k). x and y count bricks from the
-    mark's top-left. */
+    The brick at a rounded corner has kind 'round' and its corner k (the game clips the wall to the logo's outline, so
+    the corner is the logo's own). x and y count bricks from the mark's top-left. */
 export function markBricks(per = 2) {
   const out = [], s = U / per;
   for (const [id, b] of Object.entries(BLOCKS)) {
@@ -336,7 +338,6 @@ export function markBricks(per = 2) {
       out.push({ x: X / s + i, y: Y / s + j, kind: k && rf(id, k) ? 'round' : 'full', k });
     }
   }
-  for (const [x, y, k] of WEBS) out.push({ x: x / s - (k[1] === 'r' ? 1 : 0), y: y / s - (k[0] === 'b' ? 1 : 0), kind: 'web', k });
   return out;
 }
 

@@ -1,7 +1,7 @@
 // Footer game: Breakout on the JCG STUDIO logo, full page width, at the foot of every page with a footer.
 // Hits knock out chunks (a quarter block, a letter corner), and knocked-out bricks fade to a ghost instead of vanishing.
-// The wall is the lockup on its grid: each logo block is 8 x 8 bricks, two per grid unit (rounded corners and fillets
-// included). STUDIO's drawn letters are cut into bricks of the same size, one per grid unit of the letters: the live
+// The wall is the lockup on its grid: each logo block is 8 x 8 bricks, two per grid unit (whole bricks, clipped to the logo's outline, so its corners are
+// the logo's own). STUDIO's drawn letters are cut into bricks of the same size, one per grid unit of the letters: the live
 // bricks are a clip, and the smooth letters show through it, so a hit takes a chunk out of a letter. Tap or click to play;
 // drag or move to steer (the arrow keys work too). Clear the wall and the mark buds back from one block, then STUDIO types back in.
 // It pauses off-screen and only takes over touch scrolling once a game is under way. The orange ball is the one live
@@ -11,34 +11,20 @@
 // it buds back, the second wall is the page's own word (the host's data-wall) in Departure Mono's pixels; clear that and
 // the logo returns. The game tells the page when one starts and when a wall falls (game:start, game:cleared, bubbling from
 // the host; play.js turns them into blocks). mountGame(host) mounts one on any host (the Work floor's Play sheet).
-import { markBricks, glyphCells, drawGlyph, drawMark, MARK_END, FPS, UNITS, BLOCKS } from './jcg-bud.js';
+import { markBricks, glyphCells, drawGlyph, drawMark, markPath, MARK_END, FPS, UNITS, BLOCKS } from './jcg-bud.js';
 import './creed.js';
 import { best, record } from './play-store.js';
 import { fuse } from './press.js';
 
 const PER = 2, BLOCK = UNITS * PER;   // bricks per grid unit, and per block (the mark is 60 x 24 bricks)
 
-const K = 0.5522847498, CH = '#E6E9ED', GREY = 'rgba(230,233,237,.72)', DIM = '#8A919B', SIG = '#FF5B35';
+const CH = '#E6E9ED', GREY = 'rgba(230,233,237,.72)', DIM = '#8A919B', SIG = '#FF5B35';
 const reduce = matchMedia('(prefers-reduced-motion: reduce)');
-const OUT = { tl: [0, 0], tr: [1, 0], bl: [0, 1], br: [1, 1] }, IN = { tl: [1, 1], tr: [-1, 1], bl: [1, -1], br: [-1, -1] };
 
-// Brick shapes, clockwise, at brick size b with the brick's top-left at (x, y).
-function brickPath(p, br, x, y, b) {
-  if (br.kind === 'full') { p.rect(x, y, b, b); return; }
-  const ox = x + b * OUT[br.k][0], oy = y + b * OUT[br.k][1], sx = IN[br.k][0], sy = IN[br.k][1];
-  const ax = ox + b * sx, ay = oy, bx = ox, by = oy + b * sy;                 // the arc runs from A to B around the inner corner
-  const c1x = ax - K * b * sx, c1y = ay, c2x = bx, c2y = by - K * b * sy;
-  const sx0 = br.kind === 'round' ? ox + b * sx : ox, sy0 = br.kind === 'round' ? oy + b * sy : oy;   // quarter disc: from the inner corner; fillet: from the outer
-  const cw = br.kind === 'round' ? (sx * sy < 0) : (sx * sy > 0);
-  p.moveTo(sx0, sy0);
-  if (cw) { p.lineTo(ax, ay); p.bezierCurveTo(c1x, c1y, c2x, c2y, bx, by); }
-  else { p.lineTo(bx, by); p.bezierCurveTo(c2x, c2y, c1x, c1y, ax, ay); }
-  p.closePath();
-}
-
+let LOGO = null;   // the settled logo as a Path2D in mark units, made on first draw
 const BALLS = 3;
 // Chunks (JC, 2026-10-13): a hit knocks out a whole chunk, a quarter of a logo block (4 x 4 bricks), a corner of a
-// letter, or 2 x 2 pixels of the word. Now one brick per block, ten in all; a hit block fades out quickly.
+// letter, or 2 x 2 pixels of the word. Now one brick per block, nine in all (the J's two-block stem counts as one); a hit block fades out quickly.
 // The payoff (JC, 2026-10-13; win line 2026-10-19): clear the mark and it bursts into confetti, a new win line types itself huge across the game
 // with a random slang combo, +1,000 points, and a Post-it-on-X link; then the mark buds back.
 // Win lines (JC, 2026-10-19): a new one every win, never the same twice in a row; then the logo comes back and the game resets.
@@ -60,7 +46,7 @@ function chunkKey(br) {
     const [X, Y, W, H] = b.r.map((v) => v / s), dx = Math.max(X - br.x, 0, br.x - (X + W - 1)), dy = Math.max(Y - br.y, 0, br.y - (Y + H - 1)), dd = dx + dy;
     if (dd < d) { d = dd; id = k; }
   }
-  return id;                                            // one brick per block: the mark's ten blocks are the ten bricks (JC, 2026-10-13)
+  return id === 'J2' ? 'J1' : id;                       // one brick per block (JC, 2026-10-13); the J's stem is drawn as two blocks but is one piece, so one hit takes all of it (JC, 2026-11-13: "I don't want it to break in half"). Nine bricks in all.
 }
 const pad = (n) => String(n).padStart(4, '0');
 
@@ -288,7 +274,7 @@ class FooterGame {
       this.score += BONUS; this.combo = nextWin();
       const text = `I cleared the JCG wall: ${this.score} points. ${this.combo.charAt(0) + this.combo.slice(1).toLowerCase()}`;
       this.out.share.href = 'https://x.com/intent/post?text=' + encodeURIComponent(text) + '&url=' + encodeURIComponent('https://jcg.studio');
-      this.out.share.hidden = false;
+      // this.out.share.hidden = false;   // X hidden for now (JC 2026-11-12): the "Post it on X" button stays hidden; restore this line to bring it back
       const b = this.b; this.bits = this.wall.bricks.filter((q) => q.kind !== 'web').map((q) => {
         const a = Math.random() * Math.PI * 2, v = 180 + Math.random() * 520;
         return { x: this.wx + q.x * b, y: this.wy + q.y * b, vx: Math.cos(a) * v, vy: Math.sin(a) * v - 420, s: b * (0.6 + Math.random() * 0.5), r: Math.random() * 6, vr: (Math.random() - 0.5) * 9, o: Math.random() < 0.14 };
@@ -334,6 +320,12 @@ class FooterGame {
     const { b } = this, { sx, sy } = this.wall;
     for (let i = 0; i < n; i++) drawGlyph(ctx, 'STUDIO'[i], this.wx + (sx + 8 * i + 1) * b, this.wy + sy * b, b, 1, GREY);
   }
+  // The logo wall: whole bricks, clipped to the logo's outline, so a block's corners are the logo's own (30% of a block).
+  fillWall(ctx, bricks) {
+    const k = BLOCK * this.b / 60;
+    ctx.save(); ctx.translate(this.wx + this.wall.markX * this.b, this.wy); ctx.scale(k, k); ctx.clip(LOGO || (LOGO = markPath(600)));
+    ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0); ctx.fill(bricks); ctx.restore();
+  }
   draw(now = performance.now()) {
     const { ctx, dpr, b } = this;
     ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
@@ -362,19 +354,19 @@ class FooterGame {
         const a = GHOST + (1 - GHOST) * Math.max(0, 1 - (now - g.t) / FADE), key = a.toFixed(2);
         if (!groups.has(key)) groups.set(key, { a, mark: new Path2D(), cells: new Path2D(), any: false });
         const gr = groups.get(key), x = this.wx + g.br.x * b, y = this.wy + g.br.y * b;
-        if (g.br.letter) { gr.cells.rect(x, y, b, b); gr.any = true; } else brickPath(gr.mark, g.br, x, y, b);
+        if (g.br.letter) { gr.cells.rect(x, y, b, b); gr.any = true; } else gr.mark.rect(x, y, b, b);
       }
       for (const gr of groups.values()) {
-        ctx.globalAlpha = gr.a; ctx.fillStyle = CH; ctx.fill(gr.mark);
+        ctx.globalAlpha = gr.a; ctx.fillStyle = CH; this.fillWall(ctx, gr.mark);
         if (gr.any && this.wall === this.logo) { ctx.save(); ctx.clip(gr.cells); this.letters(ctx, 6); ctx.restore(); }
       }
       ctx.globalAlpha = 1;
       const mark = new Path2D(), cells = new Path2D(), word = new Path2D();
       for (const br of this.alive.values()) {
         const x = this.wx + br.x * b, y = this.wy + br.y * b;
-        if (br.word) word.rect(x, y, b, b); else if (br.letter) cells.rect(x, y, b, b); else brickPath(mark, br, x, y, b);
+        if (br.word) word.rect(x, y, b, b); else if (br.letter) cells.rect(x, y, b, b); else mark.rect(x, y, b, b);
       }
-      ctx.fillStyle = CH; ctx.fill(mark); ctx.fill(word);
+      ctx.fillStyle = CH; this.fillWall(ctx, mark); ctx.fill(word);
       if (this.wall === this.logo) { ctx.save(); ctx.clip(cells); this.letters(ctx, 6); ctx.restore(); }   // the live letter bricks are the window the smooth letters show through
       // no seams: with one brick per block, the logo reads as itself (JC, 2026-10-13)
     }
