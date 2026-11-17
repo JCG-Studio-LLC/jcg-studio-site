@@ -1,0 +1,32 @@
+/* JCG Studio: the slide-stack case study (2026-11-13). JC's direction: every portfolio item is "a whole scrolling series of
+   16x9 slide images", after Jamey Gannon's case studies (reference: branding/inspiration/jamey-gannon/). A name, a date and
+   one sentence stay put on the left; the slides run down the right with no captions. Each slide is live HTML sized in
+   container units, so it scales as one picture. The page stays neutral; each brand brings its own colour.
+   A slide's own padding cannot use container units (the slide is the container): put it on .in. */
+:root { color-scheme: dark; --dk-edge: clamp(12px, 1.6vw, 24px); --dk-gap: clamp(8px, 1vw, 14px); --dk-r: clamp(6px, .9vw, 14px); }
+html { background: #0B0C0E; scroll-behavior: smooth; scrollbar-width: thin; scrollbar-color: rgba(230,233,237,.24) #0B0C0E; }
+html::-webkit-scrollbar { width: 8px; } html::-webkit-scrollbar-track { background: #0B0C0E; } html::-webkit-scrollbar-thumb { background: rgba(230,233,237,.22); border-radius: 8px; }
+body { margin: 0; background: var(--void); color: var(--chrome-2); } body::after { content: none; }
+.dk-bar { position: fixed; z-index: 6; top: calc(env(safe-area-inset-top) + 12px); left: 12px; }
+.dk-back { width: 44px; height: 44px; display: grid; place-items: center; border: 1px solid var(--line-strong); background: rgba(11,12,14,.72); color: var(--chrome-2); text-decoration: none; font: 400 13px/1 var(--font-hud); }
+.is-embed .dk-bar { display: none; }
+.dk { display: grid; gap: var(--dk-edge); padding: 72px var(--dk-edge) var(--dk-edge); }
+.dk-side h1 { margin: 0 0 clamp(12px, 1.6vw, 22px); font: 540 clamp(44px, 6vw, 96px)/.94 var(--font-display); font-stretch: var(--wdth-display); letter-spacing: -.035em; color: var(--chrome); }
+.dk-side .hud { font: 400 11px/1.3 var(--font-hud); letter-spacing: var(--track-hud); text-transform: uppercase; color: var(--chrome-3); margin: 0 0 14px; }
+.dk-side p.say { margin: 0 0 22px; max-width: 32ch; font-size: 16px; line-height: 1.5; color: var(--chrome-2); text-wrap: pretty; }
+.dk-pill { display: inline-flex; align-items: center; gap: 12px; min-height: 46px; padding: 0 8px 0 20px; border-radius: 999px; background: var(--chrome); color: var(--void); text-decoration: none; font: 500 15px/1 var(--font-sans); }
+.dk-pill i { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 50%; background: var(--void); color: var(--chrome); font-style: normal; font-size: 14px; }
+.dk-pill:hover { background: #fff; } .dk-pill:focus-visible { outline: 2px solid var(--signal); outline-offset: 3px; }
+.dk-stack { display: grid; gap: var(--dk-gap); min-width: 0; }
+@media (min-width: 1000px) { .dk { grid-template-columns: minmax(250px, 27%) minmax(0, 1fr); align-items: start; } .dk-side { position: sticky; top: 72px; } }
+/* a slide: one 16:9 picture */
+.sl { position: relative; aspect-ratio: 16 / 9; container-type: inline-size; overflow: hidden; border-radius: var(--dk-r); background: #15171a; isolation: isolate; }
+.sl > .in { position: absolute; inset: 0; }
+.sl img.fill, .sl video.fill { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; }
+.sl-row { display: grid; grid-template-columns: 1fr 1fr; gap: var(--dk-gap); } .sl-row .sl { aspect-ratio: 8 / 9; }
+.dk-next { margin-top: clamp(40px, 6vw, 90px); padding-bottom: clamp(30px, 5vw, 70px); display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: space-between; border-top: 1px solid var(--line); padding-top: 22px; }
+.dk-next a { color: var(--chrome); text-decoration: none; font: 400 12px/1 var(--font-hud); letter-spacing: var(--track-hud); text-transform: uppercase; } .dk-next a:hover { color: #fff; }
+.dk-fine { margin: 18px 0 0; max-width: 62ch; font: 400 11px/1.6 var(--font-hud); letter-spacing: var(--track-hud); text-transform: uppercase; color: var(--chrome-3); }
+/* slides arrive as they come on screen */
+.js .sl[data-reveal] { opacity: 0; transform: translateY(18px); transition: opacity .7s ease, transform .8s cubic-bezier(.2, .7, .2, 1); } .js .sl[data-reveal].in-view { opacity: 1; transform: none; }
+@media (prefers-reduced-motion: reduce) { .js .sl[data-reveal] { opacity: 1; transform: none; transition: none; } html { scroll-behavior: auto; } }
